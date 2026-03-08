@@ -54,7 +54,7 @@ HandTeller reads the game's process memory to navigate Telltale's Lua 5.1 VM hea
 
 The hand evaluator tries every C(n,5) combination from your 2-7 available cards and returns the best hand.
 
-For a detailed writeup of the reverse engineering process, see [the blog post](https://blog-seven-rouge-9zrs49snew.vercel.app/posts/poker-night-hand-teller).
+For a detailed writeup of the reverse engineering process, see [the blog post](https://qequ.dev/posts/poker-night-hand-teller).
 
 ## Building from source
 
