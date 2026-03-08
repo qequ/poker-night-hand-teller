@@ -12,6 +12,10 @@ A memory-reading overlay mod for **Poker Night at the Inventory** (Remastered) t
 - The overlay is only visible when the game window is active
 - Automatically closes when the game exits
 
+## Download
+
+Grab the latest `HandTeller.exe` from the [Releases page](https://github.com/qequ/poker-night-hand-teller/releases). No installation needed, just download and run.
+
 ## Requirements
 
 - Windows 10/11 (x64)
