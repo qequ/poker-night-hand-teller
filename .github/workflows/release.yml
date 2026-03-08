@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-release:
+    name: Build and publish release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build HandTeller.exe
+        run: |
+          & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" `
+            /out:HandTeller.exe /target:winexe /unsafe+ /platform:x64 `
+            /r:System.Windows.Forms.dll /r:System.Drawing.dll `
+            src\HandTeller\MemoryReader.cs src\HandTeller\AnchorNav.cs `
+            src\HandTeller\HandEvaluator.cs src\HandTeller\Overlay.cs `
+            src\HandTeller\Program.cs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "Build succeeded"
+        shell: pwsh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: HandTeller.exe
+          generate_release_notes: true

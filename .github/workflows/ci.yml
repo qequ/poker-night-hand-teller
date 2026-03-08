@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint C# sources
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check formatting with dotnet-format
+        run: |
+          dotnet new globaljson --sdk-version 8.0.100 --roll-forward latestMajor
+          dotnet new classlib -n temp --force
+          Remove-Item temp -Recurse -Force
+          dotnet tool install -g dotnet-format 2>$null
+          dotnet format whitespace src/ --verify-no-changes --verbosity diagnostic
+        shell: pwsh
+        continue-on-error: true
+
+      - name: Build with csc (verify compilation)
+        run: |
+          & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" `
+            /out:HandTeller.exe /target:winexe /unsafe+ /platform:x64 `
+            /r:System.Windows.Forms.dll /r:System.Drawing.dll `
+            src\HandTeller\MemoryReader.cs src\HandTeller\AnchorNav.cs `
+            src\HandTeller\HandEvaluator.cs src\HandTeller\Overlay.cs `
+            src\HandTeller\Program.cs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "Build succeeded"
+        shell: pwsh
