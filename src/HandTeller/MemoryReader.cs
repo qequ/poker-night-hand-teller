@@ -13,6 +13,7 @@ partial class HandTeller
     [DllImport("kernel32.dll")] static extern bool   CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll")] static extern bool   ReadProcessMemory(IntPtr proc, IntPtr addr, byte[] buf, int size, out int read);
     [DllImport("kernel32.dll")] static extern int    VirtualQueryEx(IntPtr proc, IntPtr addr, out MBI info, int size);
+    [DllImport("user32.dll")]   static extern IntPtr GetForegroundWindow();
 
     [StructLayout(LayoutKind.Sequential)]
     struct MBI {

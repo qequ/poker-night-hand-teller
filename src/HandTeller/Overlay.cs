@@ -10,9 +10,10 @@ partial class HandTeller
     {
         Label _lblStatus;
         Label _lblHandName;
-        Label _lblHole;
-        Label _lblCommunity;
         Label _btnRetry;
+        Label _btnRestart;
+        Timer _focusTimer;
+        IntPtr _gameWindowHandle;
 
         int _dragX, _dragY;
 
@@ -25,10 +26,12 @@ partial class HandTeller
             FormBorderStyle = FormBorderStyle.None;
             TopMost         = true;
             StartPosition   = FormStartPosition.Manual;
-            Location        = new Point(20, 20);
-            Size            = new Size(320, 150);
-            BackColor       = Color.FromArgb(26, 26, 46);
-            Opacity         = 0.90;
+            // Position at ~3/4 down the screen, left side
+            int screenH = Screen.PrimaryScreen.Bounds.Height;
+            Location        = new Point(20, screenH * 3 / 4);
+            Size            = new Size(280, 90);
+            BackColor       = Color.FromArgb(10, 10, 20);
+            Opacity         = 0.55;
             ShowInTaskbar   = false;
 
             // ── Drag support ──────────────────────────────────────────────────
@@ -39,52 +42,63 @@ partial class HandTeller
             };
 
             // ── Labels ────────────────────────────────────────────────────────
-            _lblStatus = MakeLabel("Initializing...", "Consolas", 9f, Color.FromArgb(136, 136, 136));
-            _lblStatus.Location = new Point(10, 8);
-            _lblStatus.Size = new Size(255, 16);
+            _lblStatus = MakeLabel("Initializing...", "Consolas", 8f, Color.FromArgb(120, 120, 120));
+            _lblStatus.Location = new Point(10, 4);
+            _lblStatus.Size = new Size(220, 14);
 
             _lblHandName = MakeLabel("", "Consolas", 22f, Color.FromArgb(255, 215, 0), bold: true);
-            _lblHandName.Location = new Point(10, 28);
-            _lblHandName.Size = new Size(295, 36);
+            _lblHandName.Location = new Point(10, 20);
+            _lblHandName.Size = new Size(260, 36);
 
-            _lblHole = MakeLabel("", "Consolas", 12f, Color.FromArgb(224, 224, 224));
-            _lblHole.Location = new Point(10, 68);
-            _lblHole.Size = new Size(295, 20);
-
-            _lblCommunity = MakeLabel("", "Consolas", 11f, Color.FromArgb(170, 170, 170));
-            _lblCommunity.Location = new Point(10, 90);
-            _lblCommunity.Size = new Size(295, 20);
-
-            // Retry button — resets anchor, triggers re-scan
-            _btnRetry = MakeLabel("↺ Retry", "Consolas", 9f, Color.FromArgb(100, 180, 255));
-            _btnRetry.Location = new Point(10, 118);
-            _btnRetry.Size = new Size(60, 18);
+            // Retry button (re-scan anchor)
+            _btnRetry = MakeLabel("↺ Retry", "Consolas", 8f, Color.FromArgb(100, 180, 255));
+            _btnRetry.Location = new Point(10, 60);
+            _btnRetry.Size = new Size(50, 14);
             _btnRetry.Cursor = Cursors.Hand;
             _btnRetry.Click += (s, e) => {
                 _btnRetry.Enabled = false;
-                _lblStatus.Text = "Re-scanning anchor...";
+                _lblStatus.Text = "Re-scanning...";
                 if (OnRetry != null) OnRetry();
             };
 
-            // Hint text
-            var hint = MakeLabel("Run during an active hand for best results", "Consolas", 8f, Color.FromArgb(80, 80, 100));
-            hint.Location = new Point(75, 120);
-            hint.Size = new Size(230, 16);
+            // Restart button (full re-launch)
+            _btnRestart = MakeLabel("⟳ Restart", "Consolas", 8f, Color.FromArgb(100, 180, 255));
+            _btnRestart.Location = new Point(70, 60);
+            _btnRestart.Size = new Size(65, 14);
+            _btnRestart.Cursor = Cursors.Hand;
+            _btnRestart.Click += (s, e) => {
+                Application.Restart();
+            };
 
             // Close button
-            var close = MakeLabel("✕", "Consolas", 10f, Color.FromArgb(255, 68, 68));
-            close.Location = new Point(295, 4);
-            close.Size = new Size(20, 16);
+            var close = MakeLabel("✕", "Consolas", 9f, Color.FromArgb(255, 68, 68));
+            close.Location = new Point(260, 4);
+            close.Size = new Size(16, 14);
             close.Cursor = Cursors.Hand;
             close.Click += (s, e) => Application.Exit();
 
             Controls.Add(_lblStatus);
             Controls.Add(_lblHandName);
-            Controls.Add(_lblHole);
-            Controls.Add(_lblCommunity);
             Controls.Add(_btnRetry);
-            Controls.Add(hint);
+            Controls.Add(_btnRestart);
             Controls.Add(close);
+
+            // Poll foreground window to show overlay only when game is active
+            _focusTimer = new Timer();
+            _focusTimer.Interval = 500;
+            _focusTimer.Tick += (s, e) => {
+                if (_gameWindowHandle == IntPtr.Zero) return;
+                IntPtr fg = GetForegroundWindow();
+                bool gameActive = (fg == _gameWindowHandle) || (fg == this.Handle);
+                Visible = gameActive;
+            };
+            _focusTimer.Start();
+        }
+
+        // Set the game's main window handle so the overlay tracks its focus
+        public void SetGameWindow(IntPtr hwnd) {
+            if (InvokeRequired) { BeginInvoke(new Action(() => SetGameWindow(hwnd))); return; }
+            _gameWindowHandle = hwnd;
         }
 
         static Label MakeLabel(string text, string font, float size, Color color, bool bold = false) {
@@ -104,15 +118,13 @@ partial class HandTeller
         }
 
         // Thread-safe update — call from any thread.
-        public void SetState(string status, string handName, string hole, string community) {
+        public void SetState(string status, string handName) {
             if (InvokeRequired) {
-                BeginInvoke(new Action(() => SetState(status, handName, hole, community)));
+                BeginInvoke(new Action(() => SetState(status, handName)));
                 return;
             }
             _lblStatus.Text    = status;
             _lblHandName.Text  = handName;
-            _lblHole.Text      = string.IsNullOrEmpty(hole)      ? "" : "Hole:      " + hole;
-            _lblCommunity.Text = string.IsNullOrEmpty(community) ? "" : "Community: " + community;
         }
     }
 }

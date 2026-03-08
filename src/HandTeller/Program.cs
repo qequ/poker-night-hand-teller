@@ -44,26 +44,32 @@ partial class HandTeller
         Application.Run(overlay);
     }
 
+    static int _gameProcessId;
+
     static void ScannerLoop(Overlay overlay) {
         // ── Find game process ─────────────────────────────────────────────────
-        overlay.SetState("Looking for CelebrityPoker.exe...", "", "", "");
+        overlay.SetState("Looking for CelebrityPoker.exe...", "");
         IntPtr proc = IntPtr.Zero;
         while (proc == IntPtr.Zero) {
             Process game = null;
             foreach (var p in Process.GetProcessesByName(GAME_PROCESS))
                 if (game == null || p.Id > game.Id) game = p;
-            if (game != null)
+            if (game != null) {
+                _gameProcessId = game.Id;
                 proc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFO, false, game.Id);
+                if (proc != IntPtr.Zero)
+                    overlay.SetGameWindow(game.MainWindowHandle);
+            }
             if (proc == IntPtr.Zero) {
-                overlay.SetState("Game not found. Launch CelebrityPoker.exe.", "", "", "");
+                overlay.SetState("Game not found. Launch CelebrityPoker.exe.", "");
                 Thread.Sleep(5000);
             }
         }
 
         // ── One-time TString scan (~15-20s) ───────────────────────────────────
-        overlay.SetState("Scanning memory (one-time, ~20s)...", "", "", "");
+        overlay.SetState("Scanning memory (~20s)...", "");
         while (!EnsureTStrings(proc)) {
-            overlay.SetState("TString scan failed. Retrying...", "", "", "");
+            overlay.SetState("TString scan failed. Retrying...", "");
             Thread.Sleep(5000);
         }
 
@@ -73,19 +79,34 @@ partial class HandTeller
         CloseHandle(proc);
     }
 
+    static bool IsGameRunning() {
+        try {
+            Process.GetProcessById(_gameProcessId);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     static void RunPollLoop(IntPtr proc, Overlay overlay) {
         FindAnchor(proc, overlay);
 
-        string lastHole = null, lastComm = null;
+        string lastHand = null;
         int failStreak = 0;
 
         while (true) {
+            // Exit if game closed
+            if (!IsGameRunning()) {
+                overlay.BeginInvoke(new Action(() => Application.Exit()));
+                return;
+            }
+
             // Manual retry requested via button
             if (_retryRequested) {
                 _retryRequested = false;
                 _anchorAddr = -1;
                 failStreak = 0;
-                lastHole = lastComm = null;
+                lastHand = null;
                 FindAnchor(proc, overlay);
                 overlay.EnableRetry();
                 continue;
@@ -98,33 +119,30 @@ partial class HandTeller
                     failStreak = 0;
                     var hole      = state.Item1;
                     var community = state.Item2;
-                    string holeStr = string.Join(" ", hole.ToArray());
-                    string commStr = string.Join(" ", community.ToArray());
 
-                    if (holeStr != lastHole || commStr != lastComm) {
-                        string handName = HandEvaluator.Evaluate(hole, community);
-                        overlay.SetState("", handName, holeStr, commStr);
-                        lastHole = holeStr;
-                        lastComm = commStr;
+                    string handName = HandEvaluator.Evaluate(hole, community);
+                    if (handName != lastHand) {
+                        overlay.SetState("", handName);
+                        lastHand = handName;
                     }
                 } else {
                     failStreak++;
 
-                    if (lastHole != null) {
-                        overlay.SetState("Waiting for next hand...", "", "", "");
-                        lastHole = lastComm = null;
+                    if (lastHand != null) {
+                        overlay.SetState("Waiting for next hand...", "");
+                        lastHand = null;
                     }
 
                     // Auto-retry: anchor is likely stale (loading screen / menu)
                     if (failStreak >= AUTO_RETRY_AFTER) {
                         failStreak = 0;
                         _anchorAddr = -1;
-                        overlay.SetState("Re-scanning anchor (auto)...", "", "", "");
+                        overlay.SetState("Re-scanning...", "");
                         FindAnchor(proc, overlay);
                     }
                 }
             } catch {
-                overlay.SetState("Connection lost. Restart HandTeller.", "", "", "");
+                overlay.BeginInvoke(new Action(() => Application.Exit()));
                 return;
             }
 
@@ -133,12 +151,12 @@ partial class HandTeller
     }
 
     static void FindAnchor(IntPtr proc, Overlay overlay) {
-        overlay.SetState("Finding player anchor...", "", "", "");
+        overlay.SetState("Finding player anchor...", "");
         while (!EnsureAnchor(proc)) {
-            overlay.SetState("Anchor not found — launch during an active hand, or use ↺ Retry.", "", "", "");
+            overlay.SetState("Anchor not found, use Retry.", "");
             Thread.Sleep(5000);
-            if (_retryRequested) return; // let the poll loop handle it
+            if (_retryRequested) return;
         }
-        overlay.SetState("Ready", "", "", "");
+        overlay.SetState("Ready", "");
     }
 }
