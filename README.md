@@ -16,6 +16,10 @@ A memory-reading overlay mod for **Poker Night at the Inventory** (Remastered) t
 
 Grab the latest `HandTeller.exe` from the [Releases page](https://github.com/qequ/poker-night-hand-teller/releases). No installation needed, just download and run.
 
+## Antivirus note
+
+HandTeller may be flagged as suspicious by some antivirus software. This is a **false positive**. The mod uses `ReadProcessMemory` to read card data from the game — the same Windows API that malware uses, which is why it gets flagged. Poker Night has no modding SDK, so reading memory externally is the only way to access the card data. The source code is fully open — you can audit it or build from source yourself.
+
 ## Requirements
 
 - Windows 10/11 (x64)
