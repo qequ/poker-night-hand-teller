@@ -14,10 +14,10 @@ using System.Windows.Forms;
 partial class HandTeller
 {
     const string GAME_PROCESS       = "CelebrityPoker";
-    const int    POLL_MS            = 3000;
+    const int    POLL_MS            = 1000;
     // After this many consecutive failed reads, auto-reset the anchor.
-    // 10 × 3s = 30s of no cards → likely stale anchor from loading/menu.
-    const int    AUTO_RETRY_AFTER   = 10;
+    // 30 × 1s = 30s of no cards → likely stale anchor from loading/menu.
+    const int    AUTO_RETRY_AFTER   = 30;
 
     static volatile bool _retryRequested = false;
 
@@ -92,6 +92,7 @@ partial class HandTeller
         FindAnchor(proc, overlay);
 
         string lastHand = null;
+        long   lastCHandPtr = -1;
         int failStreak = 0;
 
         while (true) {
@@ -105,6 +106,7 @@ partial class HandTeller
             if (_retryRequested) {
                 _retryRequested = false;
                 _anchorAddr = -1;
+                _cHandNodeAddr = -1;
                 failStreak = 0;
                 lastHand = null;
                 FindAnchor(proc, overlay);
@@ -117,16 +119,25 @@ partial class HandTeller
 
                 if (state != null) {
                     failStreak = 0;
+
                     var hole      = state.Item1;
                     var community = state.Item2;
-
                     string handName = HandEvaluator.Evaluate(hole, community);
+
+                    // Detect hand change: cHand pointer moved → new round
+                    if (_lastReadCHand != lastCHandPtr && lastCHandPtr >= 0) {
+                        overlay.SetState("", "");
+                        lastHand = null;
+                    }
+                    lastCHandPtr = _lastReadCHand;
+
                     if (handName != lastHand) {
                         overlay.SetState("", handName);
                         lastHand = handName;
                     }
                 } else {
                     failStreak++;
+                    lastCHandPtr = -1;
 
                     if (lastHand != null) {
                         overlay.SetState("Waiting for next hand...", "");
@@ -137,6 +148,7 @@ partial class HandTeller
                     if (failStreak >= AUTO_RETRY_AFTER) {
                         failStreak = 0;
                         _anchorAddr = -1;
+                        _cHandNodeAddr = -1;
                         overlay.SetState("Re-scanning...", "");
                         FindAnchor(proc, overlay);
                     }

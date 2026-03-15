@@ -11,7 +11,6 @@ partial class HandTeller
         Label _lblStatus;
         Label _lblHandName;
         Label _btnRetry;
-        Label _btnRestart;
         Timer _focusTimer;
         IntPtr _gameWindowHandle;
 
@@ -42,16 +41,16 @@ partial class HandTeller
             };
 
             // ── Labels ────────────────────────────────────────────────────────
-            _lblStatus = MakeLabel("Initializing...", "Consolas", 8f, Color.FromArgb(120, 120, 120));
+            _lblStatus = MakeLabel("Initializing...", "Century Gothic", 8f, Color.FromArgb(120, 120, 120));
             _lblStatus.Location = new Point(10, 4);
             _lblStatus.Size = new Size(220, 14);
 
-            _lblHandName = MakeLabel("", "Consolas", 22f, Color.FromArgb(255, 215, 0), bold: true);
+            _lblHandName = MakeLabel("", "Century Gothic", 22f, Color.FromArgb(255, 215, 0), bold: true);
             _lblHandName.Location = new Point(10, 20);
             _lblHandName.Size = new Size(260, 36);
 
             // Retry button (re-scan anchor)
-            _btnRetry = MakeLabel("↺ Retry", "Consolas", 8f, Color.FromArgb(100, 180, 255));
+            _btnRetry = MakeLabel("↺ Retry", "Century Gothic", 8f, Color.FromArgb(100, 180, 255));
             _btnRetry.Location = new Point(10, 60);
             _btnRetry.Size = new Size(50, 14);
             _btnRetry.Cursor = Cursors.Hand;
@@ -61,17 +60,9 @@ partial class HandTeller
                 if (OnRetry != null) OnRetry();
             };
 
-            // Restart button (full re-launch)
-            _btnRestart = MakeLabel("⟳ Restart", "Consolas", 8f, Color.FromArgb(100, 180, 255));
-            _btnRestart.Location = new Point(70, 60);
-            _btnRestart.Size = new Size(65, 14);
-            _btnRestart.Cursor = Cursors.Hand;
-            _btnRestart.Click += (s, e) => {
-                Application.Restart();
-            };
 
             // Close button
-            var close = MakeLabel("✕", "Consolas", 9f, Color.FromArgb(255, 68, 68));
+            var close = MakeLabel("✕", "Century Gothic", 9f, Color.FromArgb(255, 68, 68));
             close.Location = new Point(260, 4);
             close.Size = new Size(16, 14);
             close.Cursor = Cursors.Hand;
@@ -80,7 +71,6 @@ partial class HandTeller
             Controls.Add(_lblStatus);
             Controls.Add(_lblHandName);
             Controls.Add(_btnRetry);
-            Controls.Add(_btnRestart);
             Controls.Add(close);
 
             // Poll foreground window to show overlay only when game is active

@@ -120,7 +120,24 @@ partial class HandTeller
     }
 
     // ── FindCHand: locate the current Hand table via the anchor ──────────────
+    static long _cHandNodeAddr = -1;  // cached node address for fast re-reads
+
     static long FindCHand(IntPtr proc) {
+        // Fastest path: re-read cached cHand node directly
+        if (_cHandNodeAddr >= 0) {
+            var nd = Read(proc, _cHandNodeAddr, NODE_SIZE);
+            if (nd != null && nd.Length >= NODE_KEY_TT + 4) {
+                long kPtr = BitConverter.ToInt64(nd, NODE_KEY);
+                int  kTT  = BitConverter.ToInt32(nd, NODE_KEY_TT);
+                if ((kTT & 0x3F) == LUA_TSTRING && kPtr == _tsCache["cHand"]) {
+                    int  vTT  = BitConverter.ToInt32(nd, NODE_VAL_TT);
+                    long vPtr = BitConverter.ToInt64(nd, NODE_VAL);
+                    if ((vTT & 0x3F) == LUA_TTABLE && ValidPtr(vPtr)) return vPtr;
+                }
+            }
+            _cHandNodeAddr = -1; // stale, fall through
+        }
+
         // Fast path: cHand node is in the same hash table as anchor (±800 bytes)
         for (int delta = -800; delta <= 800; delta += NODE_SIZE) {
             if (delta == 0) continue;
@@ -132,23 +149,29 @@ partial class HandTeller
             if ((kTT & 0x3F) == LUA_TSTRING && kPtr == _tsCache["cHand"]) {
                 int  vTT  = BitConverter.ToInt32(nd, NODE_VAL_TT);
                 long vPtr = BitConverter.ToInt64(nd, NODE_VAL);
-                if ((vTT & 0x3F) == LUA_TTABLE && ValidPtr(vPtr)) return vPtr;
+                if ((vTT & 0x3F) == LUA_TTABLE && ValidPtr(vPtr)) {
+                    _cHandNodeAddr = cand;
+                    return vPtr;
+                }
             }
         }
         // Slow fallback: scan all cHand nodes, pick closest to anchor
-        long best = -1, bestDist = long.MaxValue;
+        long best = -1, bestDist = long.MaxValue, bestNodeAddr = -1;
         foreach (var nd in FindNodesWithKey(proc, _tsCache["cHand"])) {
             if ((nd[2] & 0x3F) != LUA_TTABLE || !ValidPtr(nd[1])) continue;
             long dist = Math.Abs(nd[0] - _anchorAddr);
-            if (dist < bestDist) { bestDist = dist; best = nd[1]; }
+            if (dist < bestDist) { bestDist = dist; best = nd[1]; bestNodeAddr = nd[0]; }
         }
+        if (bestNodeAddr >= 0) _cHandNodeAddr = bestNodeAddr;
         return best;
     }
 
-    // ── ReadCurrentCards: navigate to current hand, return (hole, community) ─
+    // ── ReadCurrentCards: navigate to current hand, return (hole, community, cHandPtr) ─
     // Returns null if no active hand.
+    static long _lastReadCHand = -1;
     static Tuple<List<string>, List<string>> ReadCurrentCards(IntPtr proc) {
         long cHandPtr = FindCHand(proc);
+        _lastReadCHand = cHandPtr;
         if (cHandPtr < 0) return null;
 
         int hcTT;
